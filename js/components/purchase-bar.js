@@ -4,8 +4,6 @@ Author: FRONTLENS LLC
 License: For personal/business use only. Redistribution, resale, or sublicensing is strictly Copyright (c) 2026 FRONTLENS LLC. All rights reserved.
 */
 
-import { throttle } from "../utilities/throttle.js";
-
 const SECTION_SPACING = 24;
 
 function metrics() {
@@ -20,13 +18,54 @@ function metrics() {
   };
 }
 
-function syncPin() {
+function placeBar() {
   const scope = document.querySelector("[data-purchase-scope]");
   const bar = document.querySelector("[data-purchase-bar]");
-  if (!scope || !bar) return;
+  const sheet = document.querySelector(".purchase-bar__sheet");
+  const rail = document.querySelector("[data-purchase-rail]");
+  const details = document.querySelector("[data-purchase-details]");
+  const header = document.getElementById("header");
+  const footer = document.getElementById("footer");
+  if (!scope || !bar || !sheet || !rail) return;
+
+  sheet.style.transform = "translateY(0px)";
   const scopeBottom = scope.getBoundingClientRect().bottom;
-  const stickLine = window.innerHeight - 12;
-  bar.setAttribute("data-pin", scopeBottom <= stickLine ? "release" : "stick");
+  const release = scopeBottom <= window.innerHeight - 12;
+  bar.setAttribute("data-pin", release ? "release" : "stick");
+
+  const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+  const open = bar.getAttribute("data-state") === "open" && details && !details.hasAttribute("hidden");
+
+  if (open) {
+    const railBox = rail.getBoundingClientRect();
+    const footerTop = footer ? footer.getBoundingClientRect().top : window.innerHeight;
+    const above = Math.max(0, railBox.top - headerBottom);
+    const belowEdge = release ? footerTop : window.innerHeight;
+    const below = Math.max(0, belowEdge - railBox.bottom);
+    const need = details.scrollHeight;
+    const dir = above >= need || above >= below ? "up" : "down";
+    const room = dir === "up" ? above : below;
+    bar.setAttribute("data-expand", dir);
+    details.style.maxHeight = `${Math.max(48, Math.floor(room))}px`;
+    details.style.overflowY = need > room + 1 ? "auto" : "";
+  } else {
+    bar.setAttribute("data-expand", "up");
+    if (details) {
+      details.style.maxHeight = "";
+      details.style.overflowY = "";
+    }
+  }
+
+  const railTop = rail.getBoundingClientRect().top;
+  const detailsTop = open ? details.getBoundingClientRect().top : railTop;
+  const visualTop = Math.min(railTop, detailsTop);
+  if (visualTop < headerBottom - 1) {
+    sheet.style.transform = `translateY(${headerBottom - visualTop}px)`;
+  }
+}
+
+function syncPin() {
+  placeBar();
 }
 
 function syncMetrics() {
@@ -75,6 +114,7 @@ export function initPurchaseBar() {
     if (open) details.removeAttribute("hidden");
     else details.setAttribute("hidden", "");
     syncMetrics();
+    placeBar();
   };
 
   const openBar = () => {
@@ -100,20 +140,22 @@ export function initPurchaseBar() {
   });
 
   syncMetrics();
-  syncPin();
+  placeBar();
   window.addEventListener("load", () => {
     syncMetrics();
-    syncPin();
+    placeBar();
   });
-  const onScroll = throttle(() => {
-    syncPin();
-  }, 50);
-  window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener(
-    "resize",
-    throttle(() => {
-      syncMetrics();
-      syncPin();
-    }, 100),
-  );
+  let frame = 0;
+  const schedule = () => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      placeBar();
+    });
+  };
+  window.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("resize", () => {
+    syncMetrics();
+    schedule();
+  });
 }
