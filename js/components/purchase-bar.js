@@ -5,17 +5,98 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
 */
 
 const SECTION_SPACING = 24;
+const CLOSE_GAP = 8;
+const SCROLL_KEYS = new Set([
+  " ",
+  "PageUp",
+  "PageDown",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+]);
 
-function metrics() {
-  const header = document.getElementById("header");
-  const rail = document.querySelector("[data-purchase-rail]");
-  const headerH = header ? header.offsetHeight : 0;
-  const barH = rail ? rail.offsetHeight : 0;
-  return {
-    headerH,
-    barH,
-    offset: headerH + barH + SECTION_SPACING,
-  };
+let lockedY = null;
+
+function panelOpen(details) {
+  return !!(details && !details.hasAttribute("hidden"));
+}
+
+function blockScroll(event) {
+  const details = document.querySelector("[data-purchase-details]");
+  if (panelOpen(details) && details.contains(event.target)) {
+    if (event.type !== "wheel") return;
+    const atTop = details.scrollTop <= 0;
+    const atBottom =
+      details.scrollTop + details.clientHeight >= details.scrollHeight - 1;
+    if (
+      (event.deltaY < 0 && atTop) ||
+      (event.deltaY > 0 && atBottom)
+    ) {
+      event.preventDefault();
+    }
+    return;
+  }
+  event.preventDefault();
+}
+
+function blockKeys(event) {
+  if (!SCROLL_KEYS.has(event.key)) return;
+  const details = document.querySelector("[data-purchase-details]");
+  if (panelOpen(details) && details.contains(event.target)) return;
+  event.preventDefault();
+}
+
+function lockPage() {
+  if (lockedY !== null) return;
+  lockedY = window.scrollY;
+  const gap = window.innerWidth - document.documentElement.clientWidth;
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${lockedY}px`;
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+  if (gap > 0) document.body.style.paddingRight = `${gap}px`;
+  window.addEventListener("wheel", blockScroll, { passive: false });
+  window.addEventListener("touchmove", blockScroll, { passive: false });
+  window.addEventListener("keydown", blockKeys);
+}
+
+function unlockPage() {
+  if (lockedY === null) return;
+  const y = lockedY;
+  lockedY = null;
+  window.removeEventListener("wheel", blockScroll);
+  window.removeEventListener("touchmove", blockScroll);
+  window.removeEventListener("keydown", blockKeys);
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  document.body.style.paddingRight = "";
+  window.scrollTo({ top: y, left: 0, behavior: "instant" });
+}
+
+function sizeDetails(details, bar, room) {
+  details.style.height = "auto";
+  details.style.maxHeight = "none";
+  details.style.overflowY = "hidden";
+  const natural = Math.ceil(details.getBoundingClientRect().height);
+  const used = Math.min(natural, Math.max(0, room));
+  details.style.height = `${used}px`;
+  details.style.maxHeight = "";
+  bar.style.setProperty("--purchase-open-h", `${used}px`);
+  details.style.overflowY = natural > used + 1 ? "auto" : "";
+}
+
+function clearDetails(details, bar) {
+  bar.setAttribute("data-expand", "up");
+  bar.style.removeProperty("--purchase-open-h");
+  if (!details) return;
+  details.style.height = "";
+  details.style.maxHeight = "";
+  details.style.overflowY = "";
 }
 
 function placeBar() {
@@ -33,43 +114,51 @@ function placeBar() {
   const release = scopeBottom <= window.innerHeight - 12;
   bar.setAttribute("data-pin", release ? "release" : "stick");
 
-  const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
-  const open = bar.getAttribute("data-state") === "open" && details && !details.hasAttribute("hidden");
+  const headerBottom = header
+    ? Math.max(0, header.getBoundingClientRect().bottom)
+    : 0;
+  const close = bar.querySelector("[data-purchase-close]");
+  const open = bar.getAttribute("data-state") === "open" && panelOpen(details);
+  let room = 0;
 
   if (open) {
     const railBox = rail.getBoundingClientRect();
-    const footerTop = footer ? footer.getBoundingClientRect().top : window.innerHeight;
+    const footerBottom = footer
+      ? footer.getBoundingClientRect().bottom
+      : window.innerHeight;
     const above = Math.max(0, railBox.top - headerBottom);
-    const belowEdge = release ? footerTop : window.innerHeight;
-    const below = Math.max(0, belowEdge - railBox.bottom);
-    const need = details.scrollHeight;
-    const dir = above >= need || above >= below ? "up" : "down";
-    const room = dir === "up" ? above : below;
+    const below = Math.max(
+      0,
+      Math.min(window.innerHeight, footerBottom) - railBox.bottom,
+    );
+    const dir = above >= below ? "up" : "down";
+    const chrome = (close ? close.offsetHeight : 36) + CLOSE_GAP;
+    room = Math.max(0, Math.floor((dir === "up" ? above : below) - chrome));
     bar.setAttribute("data-expand", dir);
-    details.style.maxHeight = `${Math.max(48, Math.floor(room))}px`;
-    details.style.overflowY = need > room + 1 ? "auto" : "";
+    sizeDetails(details, bar, room);
   } else {
-    bar.setAttribute("data-expand", "up");
-    if (details) {
-      details.style.maxHeight = "";
-      details.style.overflowY = "";
-    }
+    clearDetails(details, bar);
   }
 
   const railTop = rail.getBoundingClientRect().top;
-  const detailsTop = open ? details.getBoundingClientRect().top : railTop;
-  const visualTop = Math.min(railTop, detailsTop);
-  if (visualTop < headerBottom - 1) {
-    sheet.style.transform = `translateY(${headerBottom - visualTop}px)`;
+  const visualTop = Math.min(
+    railTop,
+    open ? details.getBoundingClientRect().top : railTop,
+    open && close ? close.getBoundingClientRect().top : railTop,
+  );
+  if (visualTop >= headerBottom - 1) return;
+  const shift = headerBottom - visualTop;
+  sheet.style.transform = `translateY(${shift}px)`;
+  if (open && bar.getAttribute("data-expand") === "down") {
+    sizeDetails(details, bar, room - Math.ceil(shift));
   }
 }
 
-function syncPin() {
-  placeBar();
-}
-
 function syncMetrics() {
-  const { barH, offset } = metrics();
+  const header = document.getElementById("header");
+  const rail = document.querySelector("[data-purchase-rail]");
+  const barH = rail ? rail.offsetHeight : 0;
+  const offset = (header ? header.offsetHeight : 0) + barH + SECTION_SPACING;
   const root = document.documentElement;
   root.style.setProperty("--purchase-bar-h", `${barH}px`);
   root.style.setProperty("--purchase-scroll-offset", `${offset}px`);
@@ -84,35 +173,46 @@ export function collapsePurchaseBar() {
   const bar = document.querySelector("[data-purchase-bar]");
   const toggle = document.querySelector("[data-purchase-toggle]");
   const details = document.querySelector("[data-purchase-details]");
+  const close = document.querySelector("[data-purchase-close]");
   if (!bar || bar.getAttribute("data-state") !== "open") return;
-  if (details && details.contains(document.activeElement) && toggle) {
+  const focused = document.activeElement;
+  if (
+    toggle &&
+    focused &&
+    ((details && details.contains(focused)) || focused === close)
+  ) {
     toggle.focus();
   }
-  bar.setAttribute("data-state", "closed");
-  if (toggle) {
-    toggle.setAttribute("aria-expanded", "false");
-    toggle.setAttribute("aria-label", "Show purchase details");
-  }
-  if (details) details.setAttribute("hidden", "");
+  unlockPage();
+  paint(bar, toggle, details, false);
   syncMetrics();
-  syncPin();
+  placeBar();
+}
+
+function paint(bar, toggle, details, open) {
+  bar.setAttribute("data-state", open ? "open" : "closed");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    toggle.setAttribute(
+      "aria-label",
+      open ? "Hide purchase details" : "Show purchase details",
+    );
+  }
+  if (!details) return;
+  if (open) details.removeAttribute("hidden");
+  else details.setAttribute("hidden", "");
 }
 
 export function initPurchaseBar() {
   const bar = document.querySelector("[data-purchase-bar]");
   const toggle = document.querySelector("[data-purchase-toggle]");
   const details = document.querySelector("[data-purchase-details]");
+  const close = document.querySelector("[data-purchase-close]");
   if (!bar || !toggle || !details) return;
 
-  const setOpen = (open) => {
-    bar.setAttribute("data-state", open ? "open" : "closed");
-    toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    toggle.setAttribute(
-      "aria-label",
-      open ? "Hide purchase details" : "Show purchase details",
-    );
-    if (open) details.removeAttribute("hidden");
-    else details.setAttribute("hidden", "");
+  const setOpen = () => {
+    paint(bar, toggle, details, true);
+    lockPage();
     syncMetrics();
     placeBar();
   };
@@ -120,18 +220,20 @@ export function initPurchaseBar() {
   const openBar = () => {
     const menu = document.getElementById("offcanvasNavbar");
     if (menu && menu.classList.contains("show")) {
-      const onClose = () => setOpen(true);
+      const onClose = () => setOpen();
       document.addEventListener("mobilenav:close", onClose, { once: true });
       document.dispatchEvent(new CustomEvent("purchasebar:before-open"));
       return;
     }
-    setOpen(true);
+    setOpen();
   };
 
   toggle.addEventListener("click", () => {
     if (bar.getAttribute("data-state") === "open") collapsePurchaseBar();
     else openBar();
   });
+
+  if (close) close.addEventListener("click", collapsePurchaseBar);
 
   document.addEventListener("purchasebar:request-close", collapsePurchaseBar);
 
