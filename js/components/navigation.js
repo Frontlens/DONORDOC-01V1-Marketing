@@ -95,6 +95,11 @@ export function initNavScroll() {
   };
 
   const getScrollAnchorPx = () => {
+    const raw = getComputedStyle(document.documentElement)
+      .getPropertyValue("--purchase-scroll-offset")
+      .trim();
+    const offset = parseFloat(raw);
+    if (!Number.isNaN(offset) && offset > 0) return offset;
     const header = document.getElementById("header");
     const h = header ? header.offsetHeight : 0;
     return h + 24;
@@ -138,6 +143,7 @@ export function initNavScroll() {
     const href = link.getAttribute("href");
     if (!href || href === "#") return;
     if (!sectionFromHash(href) && href !== "#hero") return;
+    document.dispatchEvent(new CustomEvent("purchasebar:request-close"));
     event.preventDefault();
     history.pushState(null, null, href);
     scrollToHash(href, "auto");
@@ -203,6 +209,7 @@ export function initMobileMenu() {
   const open = () => {
     if (isOpen || isClosing) return;
 
+    document.dispatchEvent(new CustomEvent("purchasebar:request-close"));
     isOpen = true;
     offcanvas.classList.remove("is-closing");
     primeLinkReveal();
@@ -241,6 +248,10 @@ export function initMobileMenu() {
     if (isOpen) close();
     else open();
   };
+
+  document.addEventListener("purchasebar:before-open", () => {
+    if (isOpen) close();
+  });
 
   toggler.addEventListener("click", toggle);
 

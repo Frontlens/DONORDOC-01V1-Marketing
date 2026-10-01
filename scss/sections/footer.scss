@@ -415,7 +415,8 @@
 
 #up-arrow {
   position: fixed;
-  bottom: 90px;
+  bottom: calc(var(--purchase-bar-h, 68px) + 16px);
+  z-index: 1041;
   right: 40px;
   width: 50px;
   height: 50px;
@@ -431,7 +432,6 @@
   opacity: 0;
   visibility: hidden;
   transition: 0.3s all;
-  z-index: 1000;
 
   &:hover,
   &:active,

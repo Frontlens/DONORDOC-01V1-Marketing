@@ -98,7 +98,7 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
 
   #up-arrow {
     position: fixed;
-    bottom: 120px;
+    bottom: calc(var(--purchase-bar-h, 68px) + 16px);
     right: 40px;
     width: 50px;
     border-radius: 50%;

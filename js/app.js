@@ -15,10 +15,12 @@ import { initServicesReveal } from "./sections/services.js";
 import { initConsultationSection } from "./sections/consultation.js";
 import { initFaqAccordion } from "./sections/faq.js";
 import { initFooterYear, initFooterAccordion } from "./sections/footer.js";
+import { initPurchaseBar } from "./components/purchase-bar.js";
 
 initPreloader();
 
 document.addEventListener("DOMContentLoaded", function () {
+  initPurchaseBar();
   initSiteConfig().then(function () {
     initStickyHeader();
     initNavScroll();
