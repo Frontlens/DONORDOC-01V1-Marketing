@@ -386,6 +386,10 @@ $purchase-muted: $color-muted;
     gap: 2px;
   }
 
+  .purchase-bar__lead {
+    gap: 14px;
+  }
+
   .purchase-bar__identity {
     display: flex;
     flex: 0 0 auto;
