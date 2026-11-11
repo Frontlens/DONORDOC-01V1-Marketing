@@ -18,6 +18,7 @@ export const themeRegistry = {
     manifestThemeColor: "#2EAF50",
     manifestBackgroundColor: "#2EAF50",
     heroImage: "assets/images/hero-image.webp",
+    logo: "assets/images/donordoc-new-logo.webp",
   },
   professionalBlue: {
     brand: "#1267E8",
@@ -32,6 +33,7 @@ export const themeRegistry = {
     manifestThemeColor: "#1267E8",
     manifestBackgroundColor: "#FFFFFF",
     heroImage: "assets/images/hero-professional-blue.webp",
+    logo: "assets/images/donordoc-logo-professional-blue.webp",
   },
   executiveNavy: {
     brand: "#102E73",
@@ -46,6 +48,7 @@ export const themeRegistry = {
     manifestThemeColor: "#102E73",
     manifestBackgroundColor: "#FFFFFF",
     heroImage: "assets/images/hero-executive-navy.webp",
+    logo: "assets/images/donordoc-logo-executive-navy.webp",
   },
   healthcareTeal: {
     brand: "#0F8B8D",
@@ -60,5 +63,6 @@ export const themeRegistry = {
     manifestThemeColor: "#0F8B8D",
     manifestBackgroundColor: "#FFFFFF",
     heroImage: "assets/images/hero-healthcare-teal.webp",
+    logo: "assets/images/donordoc-logo-healthcare-teal.webp",
   },
 };

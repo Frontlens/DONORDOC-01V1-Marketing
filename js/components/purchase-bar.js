@@ -315,4 +315,20 @@ export function initPurchaseBar() {
     syncMetrics();
     schedule();
   });
+
+  // The header height follows the logo's aspect ratio. A custom logo can
+  // change it after load (logo swap in site-config.js). Re-sync only on a
+  // real offsetHeight change: syncMetrics() never resizes the header, so
+  // this cannot loop.
+  const header = document.getElementById("header");
+  if (header && typeof ResizeObserver === "function") {
+    let headerH = header.offsetHeight;
+    new ResizeObserver(() => {
+      const h = header.offsetHeight;
+      if (h === headerH) return;
+      headerH = h;
+      syncMetrics();
+      schedule();
+    }).observe(header);
+  }
 }

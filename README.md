@@ -36,6 +36,8 @@ npm run build:js
 
 `npm run watch:js` rebuilds while you edit `js/`. `index.html` loads `js/app.min.js`. Modules still initialize only when their DOM exists.
 
+`build:js` also bundles `js/logo-boot.js` into `js/logo-boot.min.js` (the early logo resolver that `js/hero-boot.js` imports). `build:css` and `build:js` both finish with `scripts/version-assets.mjs`, which stamps a content hash (`?v=`) onto the `hero-boot.js`, `logo-boot.min.js`, `app.min.js` and `css/style.css` URLs in `index.html`. Always deploy after `npm run build`; the watch scripts do not stamp versions.
+
 Swiper and the date picker stay vendor files, loaded when those sections are near the viewport.
 
 ## Local preview

@@ -22,6 +22,13 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
       "assets/images/hero-healthcare-teal-742w.webp 742w, assets/images/hero-healthcare-teal.webp 1254w",
   };
 
+  function own(map, key) {
+    return typeof key === "string" &&
+      Object.prototype.hasOwnProperty.call(map, key)
+      ? map[key]
+      : undefined;
+  }
+
   function resolveHero(config) {
     var image =
       (config &&
@@ -34,13 +41,13 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
     }
     var variant = config && config.theme && config.theme.variant;
     return {
-      src: THEME_HERO[variant] || THEME_HERO.trustGreen,
+      src: own(THEME_HERO, variant) || THEME_HERO.trustGreen,
       single: false,
     };
   }
 
   function applyHeroEarly(src, single) {
-    var spec = single ? null : THEME_SRCSET[src] || null;
+    var spec = single ? null : own(THEME_SRCSET, src) || null;
     var link = document.querySelector('link[rel="preload"][as="image"]');
     if (!link) {
       link = document.createElement("link");
@@ -79,6 +86,55 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
     }
   }
 
+  // Edition logo: hide [data-branding-logo] until the configured logo is
+  // resolved by logo-boot.min.js (site-config.js bundled with themeRegistry),
+  // so the Trust Green default in the HTML never flashes for other editions.
+  // index.html supplies the content-versioned resolver URL (data-logo-module,
+  // stamped by scripts/version-assets.mjs); the fallback serves an older page.
+  var LOGO_PENDING = "is-logo-pending";
+  var LOGO_FAILSAFE_MS = 8000;
+  var root = document.documentElement;
+  var bootScript = document.currentScript;
+  var logoModuleAttr = bootScript && bootScript.getAttribute("data-logo-module");
+  var siteConfigModule = logoModuleAttr
+    ? new URL(logoModuleAttr, document.baseURI).href
+    : new URL("logo-boot.min.js", (bootScript && bootScript.src) || location.href)
+        .href;
+
+  var logoStyle = document.createElement("style");
+  logoStyle.textContent =
+    "." + LOGO_PENDING + " [data-branding-logo]{visibility:hidden}";
+  document.head.appendChild(logoStyle);
+  root.classList.add(LOGO_PENDING);
+
+  function revealLogos() {
+    root.classList.remove(LOGO_PENDING);
+  }
+  setTimeout(revealLogos, LOGO_FAILSAFE_MS);
+
+  // Start loading the resolver in parallel with the config fetch.
+  var logoModuleReady = import(siteConfigModule);
+  logoModuleReady.catch(function () {});
+
+  function applyLogoEarly(config) {
+    if (!config) {
+      revealLogos(); // no config: the HTML default (Trust Green) is correct
+      return;
+    }
+    logoModuleReady
+      .then(function (mod) {
+        mod.applyBrandingLogo(config);
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", function () {
+            mod.applyBrandingLogo(config); // logos parsed after the first pass
+          });
+        }
+      })
+      .catch(function () {
+        // Leave hidden; applyBranding() in app.min.js resolves and reveals.
+      });
+  }
+
   window.__donordocConfigReady = fetch("config/siteConfig.json")
     .then(function (response) {
       if (!response.ok) throw new Error("Failed to load siteConfig.json");
@@ -93,4 +149,5 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
       applyHeroEarly(THEME_HERO.trustGreen, false);
       return null;
     });
+  window.__donordocConfigReady.then(applyLogoEarly);
 })();

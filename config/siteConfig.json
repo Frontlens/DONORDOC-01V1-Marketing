@@ -19,7 +19,8 @@
   },
   "branding": {
     "logo": {
-      "src": "assets/images/donordoc-new-logo.webp",
+      "mode": "theme",
+      "customSrc": null,
       "alt": "DONORDOC"
     },
     "favicon": {

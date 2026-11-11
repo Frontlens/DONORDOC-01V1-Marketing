@@ -56,9 +56,94 @@ export function getSiteConfig() {
   return siteConfig;
 }
 
+const DEFAULT_THEME = "trustGreen";
+const LOGO_PENDING_CLASS = "is-logo-pending";
+
+// Own-property lookup: keys like "constructor" or "toString" must not
+// resolve to inherited Object.prototype members.
+function ownValue(map, key) {
+  return typeof key === "string" && Object.prototype.hasOwnProperty.call(map, key)
+    ? map[key]
+    : undefined;
+}
+
 export function getTheme(config) {
-  const variant = config?.theme?.variant;
-  return themeRegistry[variant] || themeRegistry.trustGreen;
+  return ownValue(themeRegistry, config?.theme?.variant) || themeRegistry[DEFAULT_THEME];
+}
+
+function isUsablePath(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function isSystemLogo(src) {
+  return Object.keys(themeRegistry).some(function (key) {
+    return themeRegistry[key].logo === src;
+  });
+}
+
+// Logo of the active edition. Unknown variants fall back to Trust Green;
+// a known variant is never swapped for a different edition.
+export function resolveThemeLogo(config) {
+  const logo = getTheme(config).logo;
+  return isUsablePath(logo) ? logo : themeRegistry[DEFAULT_THEME].logo;
+}
+
+// branding.logo: { mode: "theme" | "custom", customSrc, alt }.
+// "custom" with a usable customSrc wins; anything else resolves to the theme
+// logo. Legacy configs ({ src } without mode) keep a non-system src as custom.
+export function resolveLogo(config) {
+  const logo = config?.branding?.logo;
+  if (logo && typeof logo === "object") {
+    if (logo.mode === "custom" && isUsablePath(logo.customSrc)) {
+      return logo.customSrc.trim();
+    }
+    if (logo.mode == null && isUsablePath(logo.src) && !isSystemLogo(logo.src)) {
+      return logo.src.trim();
+    }
+  }
+  return resolveThemeLogo(config);
+}
+
+function loadImage(src) {
+  return new Promise(function (resolve, reject) {
+    const probe = new Image();
+    probe.onload = function () {
+      resolve(src);
+    };
+    probe.onerror = function () {
+      reject(new Error("Logo failed to load: " + src));
+    };
+    probe.src = src;
+  });
+}
+
+export function revealLogos() {
+  document.documentElement.classList.remove(LOGO_PENDING_CLASS);
+}
+
+// Shared by hero-boot.js (early) and applyBranding(): waits until the
+// resolved logo is cached, stamps every [data-branding-logo], then reveals.
+export function applyBrandingLogo(config) {
+  const preferred = resolveLogo(config);
+  const themeLogo = resolveThemeLogo(config);
+  const alt = config?.branding?.logo?.alt;
+  return loadImage(preferred)
+    .catch(function () {
+      if (preferred === themeLogo) return preferred;
+      console.warn(
+        "Custom logo could not be loaded; using the theme logo instead:",
+        preferred,
+      );
+      return themeLogo;
+    })
+    .then(function (src) {
+      document.querySelectorAll("[data-branding-logo]").forEach(function (img) {
+        if (img.getAttribute("src") !== src) img.setAttribute("src", src);
+        if (hasText(alt)) img.setAttribute("alt", alt);
+      });
+      revealLogos();
+      return src;
+    });
 }
 
 export function resolveHeroImage(config) {
@@ -127,7 +212,7 @@ const SYSTEM_SRCSET = {
 function applyResponsiveSrc(img, src, single) {
   if (!src) return;
   img.setAttribute("src", src);
-  const spec = single ? null : SYSTEM_SRCSET[src];
+  const spec = single ? null : ownValue(SYSTEM_SRCSET, src);
   if (spec) {
     img.setAttribute("srcset", spec.srcset);
     img.setAttribute("sizes", spec.sizes);
@@ -149,7 +234,7 @@ function applyHeroPreload(src, single) {
   }
   preload.setAttribute("href", src);
   preload.setAttribute("fetchpriority", "high");
-  const spec = single ? null : SYSTEM_SRCSET[src];
+  const spec = single ? null : ownValue(SYSTEM_SRCSET, src);
   if (spec) {
     preload.setAttribute("imagesrcset", spec.srcset);
     preload.setAttribute("imagesizes", spec.sizes);
@@ -279,11 +364,7 @@ function setLink(selector, attr, value) {
 }
 
 function applyBranding(config) {
-  const logo = config.branding?.logo || {};
-  document.querySelectorAll("[data-branding-logo]").forEach(function (img) {
-    if (logo.src) img.setAttribute("src", logo.src);
-    if (logo.alt != null) img.setAttribute("alt", logo.alt);
-  });
+  applyBrandingLogo(config);
 
   const favicon = config.branding?.favicon?.src;
   if (favicon) {
@@ -841,6 +922,7 @@ export function initSiteConfig() {
     .then(function (config) {
       if (!config) {
         siteConfig = null;
+        revealLogos();
         return null;
       }
       siteConfig = config;
@@ -850,6 +932,7 @@ export function initSiteConfig() {
     .catch(function (error) {
       console.error("initSiteConfig error:", error);
       siteConfig = null;
+      revealLogos();
       return null;
     });
 }
