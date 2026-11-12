@@ -43,6 +43,30 @@ npm run build:js
 
 Swiper and the date picker stay vendor files, loaded when those sections are near the viewport.
 
+## Edition builds
+
+`scripts/build-edition.mjs` builds a deployable copy of one edition into `dist/<edition>/` (Git-ignored). Node.js built-ins only; no `npm install` needed.
+
+```bash
+npm run build:edition -- --edition executiveNavy   # one edition
+DONORDOC_EDITION=executive-navy npm run build:edition
+npm run build:editions                             # all four
+```
+
+| Edition | `--edition` / `DONORDOC_EDITION` | Output |
+| --- | --- | --- |
+| Trust Green | `trustGreen` or `trust-green` | `dist/trust-green/` |
+| Executive Navy | `executiveNavy` or `executive-navy` | `dist/executive-navy/` |
+| Professional Blue | `professionalBlue` or `professional-blue` | `dist/professional-blue/` |
+| Healthcare Teal | `healthcareTeal` or `healthcare-teal` | `dist/healthcare-teal/` |
+
+- `--edition` wins over `DONORDOC_EDITION` (a note is printed when they differ). A missing or unknown edition stops the build; there is no default.
+- The build reads the **committed** tree (`HEAD`) through Git, so the output depends only on the commit and the edition, and repeated builds are byte-identical. Uncommitted edits are not included (the build lists them). Commit first, including the output of `npm run build`; the build stops if a `?v=` stamp does not match its file.
+- Per edition, only four generated files change: `config/siteConfig.json` (`theme.variant`), `index.html` (static logo, favicon and Apple touch icon, plus the edition's CSS color defaults in a `<style data-edition-defaults>` after the stylesheet), `site.webmanifest` (colors and Android icons) and `js/hero-boot.js` (its hero fallback when `siteConfig.json` cannot load, with a new `?v=` stamp). So a page whose config fails to load still shows one edition throughout. Runtime logo/favicon selection, theme colors from the config, custom branding and asset versioning are unchanged. Trust Green needs none of these changes: its output is identical to the committed site files.
+- Not published: `scss/`, `scripts/`, `package*.json`, `README.md`, `LICENSE`, `.vscode/`, `.git*`, `node_modules/`, `.gitkeep`.
+
+Netlify (one site per edition, configured in the site settings; no `netlify.toml`): build command `node scripts/build-edition.mjs`, environment variables `DONORDOC_EDITION=<edition>` and `NODE_VERSION=20` (or later), publish directory `dist/<edition-slug>` (for example `dist/executive-navy`). Netlify builds from a Git checkout, which the script needs.
+
 ## Local preview
 
 Do not double-click `index.html` to open it. Preview the site with Live Server (port 5506) or another local web preview from this folder so `config/siteConfig.json` can load.

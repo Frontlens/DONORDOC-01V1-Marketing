@@ -7,7 +7,9 @@
     "watch:css": "sass scss/style.scss css/style.css --style=compressed --source-map --watch",
     "build:js": "esbuild js/app.js --bundle --minify --sourcemap --format=iife --outfile=js/app.min.js && esbuild js/logo-boot.js --bundle --minify --sourcemap --format=esm --outfile=js/logo-boot.min.js && node scripts/version-assets.mjs",
     "watch:js": "esbuild js/app.js --bundle --minify --sourcemap --format=iife --outfile=js/app.min.js --watch",
-    "build": "npm run build:css && npm run build:js"
+    "build": "npm run build:css && npm run build:js",
+    "build:edition": "node scripts/build-edition.mjs",
+    "build:editions": "node scripts/build-edition.mjs --all"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
