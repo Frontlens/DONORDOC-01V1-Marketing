@@ -110,7 +110,49 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
   function revealLogos() {
     root.classList.remove(LOGO_PENDING);
   }
-  setTimeout(revealLogos, LOGO_FAILSAFE_MS);
+
+  // Edition favicon: this script runs before the <link rel="icon"> tags are
+  // parsed, so point them at a transparent placeholder as they arrive and let
+  // applyBrandingIcons() set the edition icon. The static Trust Green favicon
+  // is restored if the config cannot be resolved; without JavaScript the HTML
+  // is untouched.
+  var ICON_PLACEHOLDER =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVR42mNgYGBgAAAABQABeqhXUAAAAABJRU5ErkJggg==";
+  var heldIcons = [];
+  function holdIcon(node) {
+    if (node.nodeName !== "LINK" || !/(^|\s)icon(\s|$)/i.test(node.rel)) return;
+    if (!node.hasAttribute("data-static-href")) {
+      node.setAttribute("data-static-href", node.getAttribute("href") || "");
+    }
+    node.setAttribute("href", ICON_PLACEHOLDER);
+    heldIcons.push(node);
+  }
+  var iconObserver =
+    typeof MutationObserver === "function"
+      ? new MutationObserver(function (records) {
+          records.forEach(function (record) {
+            record.addedNodes.forEach(holdIcon);
+          });
+        })
+      : null;
+  if (iconObserver) {
+    iconObserver.observe(root, { childList: true, subtree: true });
+    document.addEventListener("DOMContentLoaded", function () {
+      iconObserver.disconnect();
+    });
+  }
+  function restoreStaticIcons() {
+    heldIcons.forEach(function (link) {
+      if (link.getAttribute("href") === ICON_PLACEHOLDER) {
+        link.setAttribute("href", link.getAttribute("data-static-href"));
+      }
+    });
+  }
+
+  setTimeout(function () {
+    revealLogos();
+    restoreStaticIcons();
+  }, LOGO_FAILSAFE_MS);
 
   // Start loading the resolver in parallel with the config fetch.
   var logoModuleReady = import(siteConfigModule);
@@ -118,16 +160,24 @@ License: For personal/business use only. Redistribution, resale, or sublicensing
 
   function applyLogoEarly(config) {
     if (!config) {
-      revealLogos(); // no config: the HTML default (Trust Green) is correct
+      // no config: the HTML defaults (Trust Green logo and favicon) are correct
+      revealLogos();
+      restoreStaticIcons();
       return;
     }
     logoModuleReady
       .then(function (mod) {
-        mod.applyBrandingLogo(config);
+        function applyEarly() {
+          mod.applyBrandingLogo(config);
+          // Edition favicon, Apple touch icon, theme-color and manifest.
+          if (typeof mod.applyBrandingIcons === "function") {
+            mod.applyBrandingIcons(config);
+          }
+        }
+        applyEarly();
         if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", function () {
-            mod.applyBrandingLogo(config); // logos parsed after the first pass
-          });
+          // logos and icon links parsed after the first pass
+          document.addEventListener("DOMContentLoaded", applyEarly);
         }
       })
       .catch(function () {

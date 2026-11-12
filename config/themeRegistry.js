@@ -19,6 +19,12 @@ export const themeRegistry = {
     manifestBackgroundColor: "#2EAF50",
     heroImage: "assets/images/hero-image.webp",
     logo: "assets/images/donordoc-new-logo.webp",
+    icons: {
+      ico: "favicon.ico",
+      appleTouch: "apple-touch-icon.png",
+      android192: "android-chrome-192x192.png",
+      android512: "android-chrome-512x512.png",
+    },
   },
   professionalBlue: {
     brand: "#1267E8",
@@ -34,6 +40,12 @@ export const themeRegistry = {
     manifestBackgroundColor: "#FFFFFF",
     heroImage: "assets/images/hero-professional-blue.webp",
     logo: "assets/images/donordoc-logo-professional-blue.webp",
+    icons: {
+      ico: "assets/icons/professional-blue/favicon.ico",
+      appleTouch: "assets/icons/professional-blue/apple-touch-icon.png",
+      android192: "assets/icons/professional-blue/android-chrome-192x192.png",
+      android512: "assets/icons/professional-blue/android-chrome-512x512.png",
+    },
   },
   executiveNavy: {
     brand: "#102E73",
@@ -49,6 +61,12 @@ export const themeRegistry = {
     manifestBackgroundColor: "#FFFFFF",
     heroImage: "assets/images/hero-executive-navy.webp",
     logo: "assets/images/donordoc-logo-executive-navy.webp",
+    icons: {
+      ico: "assets/icons/executive-navy/favicon.ico",
+      appleTouch: "assets/icons/executive-navy/apple-touch-icon.png",
+      android192: "assets/icons/executive-navy/android-chrome-192x192.png",
+      android512: "assets/icons/executive-navy/android-chrome-512x512.png",
+    },
   },
   healthcareTeal: {
     brand: "#0F8B8D",
@@ -64,5 +82,11 @@ export const themeRegistry = {
     manifestBackgroundColor: "#FFFFFF",
     heroImage: "assets/images/hero-healthcare-teal.webp",
     logo: "assets/images/donordoc-logo-healthcare-teal.webp",
+    icons: {
+      ico: "assets/icons/healthcare-teal/favicon.ico",
+      appleTouch: "assets/icons/healthcare-teal/apple-touch-icon.png",
+      android192: "assets/icons/healthcare-teal/android-chrome-192x192.png",
+      android512: "assets/icons/healthcare-teal/android-chrome-512x512.png",
+    },
   },
 };

@@ -16,8 +16,11 @@ Do not change visual design, copy, or interactions unless Frontlens asks.
 - `js/vendor/` — FLDatePicker (global)
 - `config/` — `siteConfig.json` and `themeRegistry.js`
 - `assets/images/` — image assets
+- `assets/icons/<edition>/` — favicon, Apple touch and Android icons for Executive Navy, Professional Blue and Healthcare Teal. Trust Green's icons stay in the site root (`favicon.ico`, `apple-touch-icon.png`, `android-chrome-*.png`) and are the static fallback.
 
-Empty `pages/`, `assets/icons/`, and `assets/fonts/` are omitted until those files exist.
+Each edition's icons are listed in `config/themeRegistry.js` (`icons`) and chosen from `theme.variant`. `branding.favicon` in `siteConfig.json` keeps working: `{ "src": "/favicon.ico" }` uses the edition's icons; `{ "mode": "custom", "customSrc": "..." }` (or any other `src`) replaces the browser-tab icon only.
+
+Empty `pages/` and `assets/fonts/` are omitted until those files exist.
 
 ## Sass
 

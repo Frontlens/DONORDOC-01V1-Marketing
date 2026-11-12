@@ -146,6 +146,108 @@ export function applyBrandingLogo(config) {
     });
 }
 
+// Edition icons: themeRegistry[edition].icons = { ico, appleTouch, android192,
+// android512 }. Every edition keeps its own paths (no cross-edition cache
+// collisions); Trust Green is the fallback for unknown variants.
+const ICON_KEYS = ["ico", "appleTouch", "android192", "android512"];
+
+export function resolveThemeIcons(config) {
+  const icons = getTheme(config).icons || {};
+  const fallback = themeRegistry[DEFAULT_THEME].icons;
+  const resolved = {};
+  ICON_KEYS.forEach(function (key) {
+    resolved[key] = isUsablePath(icons[key]) ? icons[key] : fallback[key];
+  });
+  return resolved;
+}
+
+function isSystemFavicon(src) {
+  const path = src.trim().replace(/^\.?\//, "");
+  return Object.keys(themeRegistry).some(function (key) {
+    const icons = themeRegistry[key].icons;
+    return Boolean(icons) && icons.ico === path;
+  });
+}
+
+// branding.favicon: { mode: "theme" | "custom", customSrc }. A usable custom
+// favicon replaces the browser-tab icon only, as the legacy setting did; the
+// Apple touch and manifest icons stay with the edition. Legacy { src }: the
+// shipped "/favicon.ico" (or any edition icon) means "use the edition icon";
+// any other src is the customer's own favicon.
+export function resolveIcons(config) {
+  const icons = resolveThemeIcons(config);
+  const favicon = config?.branding?.favicon;
+  if (favicon && typeof favicon === "object") {
+    if (favicon.mode === "custom" && isUsablePath(favicon.customSrc)) {
+      icons.ico = favicon.customSrc.trim();
+    } else if (
+      favicon.mode == null &&
+      isUsablePath(favicon.src) &&
+      !isSystemFavicon(favicon.src)
+    ) {
+      icons.ico = favicon.src.trim();
+    }
+  }
+  return icons;
+}
+
+function absoluteUrl(path) {
+  return new URL(path, document.baseURI).href;
+}
+
+function setLinkHref(selector, path) {
+  const target = absoluteUrl(path);
+  document.querySelectorAll(selector).forEach(function (link) {
+    if (link.href !== target) link.setAttribute("href", path);
+  });
+}
+
+// The manifest is served as a blob: URL, so its icon paths must be absolute
+// or the browser cannot resolve them.
+function applyManifest(theme, icons) {
+  const link = document.querySelector('link[rel="manifest"]');
+  if (!link) return;
+  const manifest = {
+    name: "Donordoc-01",
+    short_name: "Donordoc",
+    icons: [
+      { src: absoluteUrl(icons.android192), sizes: "192x192", type: "image/png" },
+      { src: absoluteUrl(icons.android512), sizes: "512x512", type: "image/png" },
+    ],
+    theme_color: theme.manifestThemeColor,
+    background_color: theme.manifestBackgroundColor,
+    display: "standalone",
+  };
+  const json = JSON.stringify(manifest);
+  if (link.dataset.manifestJson === json) return;
+  const url = URL.createObjectURL(
+    new Blob([json], { type: "application/manifest+json" }),
+  );
+  if (link.dataset.manifestUrl) URL.revokeObjectURL(link.dataset.manifestUrl);
+  link.dataset.manifestUrl = url;
+  link.dataset.manifestJson = json;
+  link.setAttribute("href", url);
+}
+
+// Shared by hero-boot.js (early) and applyBranding(): browser-tab icon, Apple
+// touch icon, theme-color and manifest for the active edition. Idempotent.
+export function applyBrandingIcons(config) {
+  const theme = getTheme(config);
+  const icons = resolveIcons(config);
+  setLinkHref('link[rel="icon"]', icons.ico);
+  setLinkHref('link[rel="apple-touch-icon"]', icons.appleTouch);
+
+  let themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (!themeMeta) {
+    themeMeta = document.createElement("meta");
+    themeMeta.setAttribute("name", "theme-color");
+    document.head.appendChild(themeMeta);
+  }
+  themeMeta.setAttribute("content", theme.manifestThemeColor);
+  applyManifest(theme, icons);
+  return icons;
+}
+
 export function resolveHeroImage(config) {
   const image = config?.sections?.hero?.image || {};
   if (image.mode === "custom" && image.customSrc) {
@@ -295,45 +397,7 @@ function applyTheme(config) {
   THEME_CSS_VARS.forEach(function (pair) {
     root.style.setProperty(pair[1], theme[pair[0]]);
   });
-
-  let themeMeta = document.querySelector('meta[name="theme-color"]');
-  if (!themeMeta) {
-    themeMeta = document.createElement("meta");
-    themeMeta.setAttribute("name", "theme-color");
-    document.head.appendChild(themeMeta);
-  }
-  themeMeta.setAttribute("content", theme.manifestThemeColor);
-  applyManifest(theme);
-}
-
-function applyManifest(theme) {
-  const link = document.querySelector('link[rel="manifest"]');
-  if (!link) return;
-  const manifest = {
-    name: "Donordoc-01",
-    short_name: "Donordoc",
-    icons: [
-      {
-        src: "/android-chrome-192x192.png",
-        sizes: "192x192",
-        type: "image/png",
-      },
-      {
-        src: "/android-chrome-512x512.png",
-        sizes: "512x512",
-        type: "image/png",
-      },
-    ],
-    theme_color: theme.manifestThemeColor,
-    background_color: theme.manifestBackgroundColor,
-    display: "standalone",
-  };
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" }),
-  );
-  if (link.dataset.manifestUrl) URL.revokeObjectURL(link.dataset.manifestUrl);
-  link.dataset.manifestUrl = url;
-  link.setAttribute("href", url);
+  // theme-color and the manifest are applied with the icons (applyBrandingIcons).
 }
 
 function applySeo(config) {
@@ -365,13 +429,7 @@ function setLink(selector, attr, value) {
 
 function applyBranding(config) {
   applyBrandingLogo(config);
-
-  const favicon = config.branding?.favicon?.src;
-  if (favicon) {
-    document.querySelectorAll('link[rel="icon"]').forEach(function (icon) {
-      icon.setAttribute("href", favicon);
-    });
-  }
+  applyBrandingIcons(config);
 }
 
 function sectionIsEnabled(config, sectionId) {
